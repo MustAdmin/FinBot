@@ -11,7 +11,7 @@ from sklearn.model_selection import train_test_split
 from ConfigParser import RawConfigParser
 
 #-------- define paths -----------#
-basePath = os.path.dirname(os.path.dirname(os.path.realpath(__file__))) # root directory 
+basePath = os.path.dirname(os.path.dirname(os.path.realpath(__file__))) # project root directory 
 dataPath = os.path.join(basePath, "data")
 configPath = os.path.join(basePath, "config")
 modelPath = os.path.join(basePath, "model")
@@ -25,7 +25,8 @@ sys.path.append(basePath)
 config = RawConfigParser()
 config.read(os.path.join(configPath, 'config.ini'))
 windowSize = config.getint('preProcess', 'windowSize')
-# print(type(windowSize))
+testDataSize = config.getfloat('buildModel', 'testDataSize')
+print('Train-Test ratio:\n{}:{}'.format(((1 - testDataSize)*100), testDataSize*100))
 
 # print(os.path.dirname(__file__)) # directory name containing the script
 # print(os.path.basename(__file__)) # current file name
@@ -50,29 +51,32 @@ rows = np.array(rows)
 # print(rows)
 
 cols = zip(*rows)
-feature = np.array(zip(*cols[0:4])) # first four values are taken as features
-target = np.array(cols[4]) # last value is taken as target
+feature = np.array(zip(*cols[0:4])) # every set of first four values will be taken as feature vector
+target = np.array(cols[4]) # every fifth value will be taken as target/response
 
 # print(target)
 
 # print(target.shape)
 # print(target)
 
-#-------- data normalization ----------#
+#-------- data partitioning ----------#
+featureTrain, featureTest, targetTrain, targetTest = train_test_split(feature, target, test_size=testDataSize)
+
+#-------- data scaling ----------#
 minMaxScalar = MinMaxScaler(feature_range=(0, 1))
-normedFeature = minMaxScalar.fit_transform(feature)
-normedTarget = minMaxScalar.fit_transform(target)
+scaledFeatureTrain = minMaxScalar.fit_transform(featureTrain)
+scaledFeatureTest = minMaxScalar.fit_transform(featureTest)
+scaledTargetTrain = minMaxScalar.fit_transform(targetTrain)
+scaledTargetTest = minMaxScalar.fit_transform(targetTest)
 
-featureTrain, featureTest, targetTrain, targetTest = train_test_split(normedFeature, normedTarget, test_size=0.30)
+#-------- defining the neuralnet ----------#
+mlp_regressor = MLPRegressor(hidden_layer_sizes=(4, 4, 4), activation="logistic", solver='sgd', learning_rate="constant", learning_rate_init=0.003, random_state=99)
 
+model = mlp_regressor.fit(scaledFeatureTrain, scaledTargetTrain)
+pred = mlp_regressor.predict(scaledFeatureTest)
 
-mlp_regressor = MLPRegressor(hidden_layer_sizes=(4, 4), activation="logistic", solver='sgd', learning_rate="constant", learning_rate_init=0.003, random_state=99)
+# print('\nPredicted values:\n{}'.format(pred))
+# print('\nActual values:\n{}'.format(targetTest))
 
-model = mlp_regressor.fit(featureTrain, targetTrain)
-pred = mlp_regressor.predict(featureTest)
-
-print('\nPredicted values:\n{}'.format(pred))
-print('\nActual values:\n{}'.format(targetTest))
-
-mape = 100 * np.sum(np.abs(targetTest - pred))/len(pred)
-print('\nMAPE:\n{}'.format(mape))
+mape = 100 * np.sum(np.abs(scaledTargetTest - pred))/len(pred)
+print('\nMAPE:\n{}\n\n'.format(mape))
