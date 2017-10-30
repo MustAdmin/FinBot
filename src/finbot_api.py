@@ -26,7 +26,7 @@ sys.path.append(home)
 os.chdir(home)
 
 # import custom modules:-----------------------------
-from src.mongoConnection import IgniteDBUtils as idu
+from src.mongo_connection import DatabaseUtilities as idu
 
 app = Flask(__name__)
 
